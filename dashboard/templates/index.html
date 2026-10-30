@@ -1,0 +1,927 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>FDM Group | Kafka Operations Center</title><link rel="stylesheet" href="{{ url_for('static', filename='css/fdm.css', v='enterprise-v3') }}"></head></script><body><div class="fdm-layout"><aside class="fdm-sidebar"><div class="fdm-brand"><img class="brand-mark" src="{{ url_for('static', filename='img/fdm-circle.png') }}" alt="FDM logo"><div><strong>FDM GROUP</strong><small>DATA ENGINEERING LAB</small></div></div><div class="fdm-nav-label">WORKSPACE</div><nav class="fdm-nav" aria-label="Operations sections"><button type="button" data-fdm-nav="overview" class="active"><span class="nav-dot"></span><span>Overview</span></button><button type="button" data-fdm-nav="producers" class=""><span class="nav-dot"></span><span>Data Producers</span></button><button type="button" data-fdm-nav="snowflake">
+  <span class="nav-dot"></span>
+  <span>Snowflake Integration</span>
+</button><button type="button" data-fdm-nav="consumers" class=""><span class="nav-dot"></span><span>Consumer Groups</span></button><button type="button" data-fdm-nav="crud" class=""><span class="nav-dot"></span><span>CRUD Playground</span></button><button type="button" data-fdm-nav="topics" class=""><span class="nav-dot"></span><span>Topic Explorer</span></button><button type="button" data-fdm-nav="failover" class=""><span class="nav-dot"></span><span>Fault Tolerance</span></button><button type="button" data-fdm-nav="events" class=""><span class="nav-dot"></span><span>Event Stream</span></button><button type="button" data-fdm-nav="retries" class=""><span class="nav-dot"></span><span>Retransmission</span></button></nav><div class="fdm-sidebar-foot"><div>APACHE KAFKA · KRAFT</div><div>OLIST E-COMMERCE PLATFORM</div><div style="margin-top:10px;color:#527000">● LOCAL DEMO ENVIRONMENT</div></div></aside><main class="fdm-main"><header class="fdm-header"><div><div class="fdm-kicker">FDM GROUP / ENGINEERING OPERATIONS</div><h1 id="fdm-page-title">Cluster Overview</h1><p>Kafka Operations Center <span style="opacity:.5">/</span> Olist streaming platform</p></div><span class="fdm-env">DEVELOPMENT ENVIRONMENT</span></header><div class="fdm-view active" data-fdm-view="overview"><div class="fdm-intro"><div><span class="fdm-eyebrow">PLATFORM HEALTH</span><h2>Real-time Kafka infrastructure</h2><p>Inspect broker availability, message routing, and the SQLite sink from one console.</p></div><span class="fdm-live"><span></span> LIVE MONITORING</span></div><div class="cards">
+<div class="card">
+<div class="label">Kafka brokers</div>
+<h2 id="brokers">--</h2>
+</div>
+<div class="card">
+<div class="label">Olist topics</div>
+<h2 id="topics">--</h2>
+</div>
+<div class="card">
+<div class="label">Total partitions</div>
+<h2 id="partitions">--</h2>
+</div>
+<div class="card">
+<div class="label">Raw SQLite orders</div>
+<h2 id="raw-orders">--</h2>
+</div>
+</div><!-- LIVE KAFKA TELEMETRY -->
+<section class="fdm-telemetry">
+  <div class="fdm-telemetry-header">
+    <div>
+      <span class="fdm-eyebrow">LIVE TELEMETRY</span>
+      <h2>Cluster Performance</h2>
+      <p>Real-time Kafka metrics updated every 5 seconds.</p>
+    </div>
+    <span id="fdm-chart-status">Waiting for telemetry...</span>
+  </div>
+
+  <div class="fdm-chart-grid">
+
+    <div class="fdm-chart-card">
+      <h3>Consumer Lag</h3>
+      <p>Messages waiting to be processed</p>
+      <canvas id="fdm-lag-chart" height="180"></canvas>
+      <div id="fdm-lag-note">Waiting for data...</div>
+    </div>
+
+    <div class="fdm-chart-card">
+      <h3>Partition Leadership</h3>
+      <p>Partition leaders distributed across brokers</p>
+      <canvas id="fdm-leader-chart" height="180"></canvas>
+      <div id="fdm-leader-note">Waiting for data...</div>
+    </div>
+
+    <div class="fdm-chart-card">
+      <h3>Replication Health</h3>
+      <p>Under-replicated partitions over time</p>
+      <canvas id="fdm-replication-chart" height="180"></canvas>
+      <div id="fdm-replication-note">Waiting for data...</div>
+    </div>
+
+<div class="fdm-chart-card">
+  <h3>Message Throughput</h3>
+  <p>New Kafka messages per second</p>
+
+  <canvas id="fdm-throughput-chart" height="180"></canvas>
+
+  <div id="fdm-throughput-note">
+    Waiting for throughput data...
+  </div>
+</div>
+
+  </div>
+</section>
+<section class="fdm-broker-health" id="fdm-broker-health"><div class="fdm-broker-top"><div><h3>Live Broker Health</h3><p>Kafka broker registration, partition leadership and replica synchronization</p></div><button type="button" id="fdm-refresh-brokers">Refresh health</button></div><div class="fdm-broker-cards" id="fdm-broker-cards"><p>Loading Kafka metadata…</p></div><div class="fdm-broker-summary" id="fdm-broker-summary">Checking cluster health…</div><div class="fdm-broker-affected" id="fdm-broker-affected"></div><div class="fdm-broker-updated" id="fdm-broker-updated"></div></section><div class="fdm-overview-grid"><div class="fdm-overview-panel"><h3>Platform architecture</h3><div class="fdm-pipeline"><span>CSV / Parquet / TAR</span><b>→</b><span>Kafka KRaft Cluster</span><b>→</b><span>Consumer Groups</span><b>→</b><span>SQLite</span></div><p>Three Kafka brokers · replicated partitions · independent transformed and raw-data consumers</p></div><div class="fdm-overview-panel"><h3>Demonstration workflows</h3><p>Use the left navigation to publish data, observe partitions, verify CRUD, and test resilience.</p><button type="button" class="primary" data-fdm-jump="producers">Open producer controls →</button></div></div></div><div class="fdm-view " data-fdm-view="producers"><section class="card" style="margin-top: 25px;">
+<h2 style="font-size: 22px;">Producer Control Center</h2>
+<p>Publish Olist records directly into Kafka</p>
+<div style="display:flex; gap:15px; flex-wrap:wrap;">
+<select id="producer-source">
+<option value="csv">CSV</option>
+<option value="parquet">Parquet</option>
+<option value="tar">TAR Archive</option>
+</select>
+<input id="producer-limit" max="1000" min="1" type="number" value="10"/>
+<button id="publish-btn" onclick="publishRecords()">
+            Publish to Kafka
+        </button>
+</div>
+<pre id="producer-output" style="background:#020617; padding:20px;
+                border-radius:10px; margin-top:20px;
+                white-space:pre-wrap;">Waiting for producer...</pre>
+</section>
+
+
+</div>
+
+<!-- SNOWFLAKE INTEGRATION -->
+<div class="fdm-view" data-fdm-view="snowflake">
+
+  <div class="fdm-intro">
+    <div>
+      <span class="fdm-eyebrow">DATA WAREHOUSE INTEGRATION</span>
+      <h2>Snowflake Integration</h2>
+      <p>
+        Monitor Snowflake source data and its
+        integration with Apache Kafka.
+      </p>
+    </div>
+  </div>
+
+  <div class="cards">
+
+    <div class="card">
+      <div class="label">Snowflake Connection</div>
+      <h2 id="snowflake-status">Not checked</h2>
+    </div>
+
+    <div class="card">
+      <div class="label">Source Tables</div>
+      <h2 id="snowflake-tables">--</h2>
+    </div>
+
+    <div class="card">
+      <div class="label">Records Published</div>
+      <h2 id="snowflake-published">--</h2>
+    </div>
+
+    <div class="card">
+      <div class="label">Last Pipeline Run</div>
+      <h2 id="snowflake-last-run">--</h2>
+    </div>
+
+  </div>
+
+  <section class="card" style="margin-top:25px;">
+
+    <h2>Snowflake → Kafka Pipeline</h2>
+
+    <p>
+      Source: Snowflake Olist E-commerce Data Warehouse
+    </p>
+
+    <div class="fdm-pipeline">
+      <span>Snowflake</span>
+      <b>→</b>
+      <span>Python Producer</span>
+      <b>→</b>
+      <span>Kafka</span>
+      <b>→</b>
+      <span>SQLite</span>
+    </div>
+
+    <p id="snowflake-pipeline-info"
+       style="margin-top:20px;">
+      Waiting for Snowflake integration...
+    </p>
+
+  </section>
+
+  <section class="card" style="margin-top:25px;">
+
+    <h2>Snowflake Source Tables</h2>
+
+    <p>
+      Olist tables available for Kafka ingestion.
+    </p>
+
+    <div id="snowflake-table-list">
+      Connection verification pending.
+    </div>
+
+  </section>
+
+  <!-- SNOWFLAKE PRODUCER CONTROLS -->
+<section class="card" style="margin-top:25px;">
+
+    <h2>Publish Snowflake Data to Kafka</h2>
+
+    <p>
+        Select an Olist table and publish records
+        directly from Snowflake into Kafka.
+    </p>
+
+    <div style="display:flex; gap:15px; flex-wrap:wrap; margin-top:20px;">
+
+        <select id="snowflake-source-table">
+            <option value="">Select Snowflake table</option>
+        </select>
+
+        <input
+            id="snowflake-publish-limit"
+            type="number"
+            min="1"
+            max="1000"
+            value="10"
+        >
+
+        <button type="button"
+                id="snowflake-publish-btn"
+                disabled>
+            Publish from Snowflake
+        </button>
+
+    </div>
+
+    <pre id="snowflake-output"
+         style="background:#020617;
+                color:#e2e8f0;
+                padding:20px;
+                border-radius:10px;
+                margin-top:20px;
+                white-space:pre-wrap;">Ready to publish Snowflake records...</pre>
+
+</section>
+<!-- END SNOWFLAKE PRODUCER CONTROLS -->
+
+</div>
+
+<div class="fdm-view " data-fdm-view="consumers"><section class="card" style="margin-top:25px;">
+<h2 style="font-size:22px;">Live Consumer Monitor</h2>
+<p>Kafka consumer group offsets and processing lag</p>
+<div class="cards" id="consumer-groups"></div>
+</section><section class="card" style="margin-top:25px;">
+<h2 style="font-size:22px;">Consumer Partition Assignments</h2>
+<p>See which Kafka consumers own each topic partition</p>
+<select id="assignment-group" onchange="refreshAssignments()">
+<option value="olist-sqlite-consumer-group">
+            Transformed Data Consumers
+        </option>
+<option value="olist-raw-sqlite-group">
+            Raw Data Consumers
+        </option>
+</select>
+<div style="overflow-x:auto; margin-top:20px;">
+<table style="width:100%; border-collapse:collapse;">
+<thead>
+<tr>
+<th>Consumer ID</th>
+<th>Host</th>
+<th>Client ID</th>
+<th>Partitions</th>
+<th>Assignments</th>
+</tr>
+</thead>
+<tbody id="assignment-rows"></tbody>
+</table>
+</div>
+</section></div><div class="fdm-view " data-fdm-view="crud"><section class="card" style="margin-top:25px;">
+<h2 style="font-size:22px;">Kafka CRUD Playground</h2>
+<p>Create, update, and delete an order through Kafka</p>
+<div style="display:flex; gap:12px; flex-wrap:wrap;">
+<button onclick="runCrud('CREATE')">
+            Create Order
+        </button>
+<button onclick="runCrud('UPDATE')">
+            Update Order
+        </button>
+<button onclick="runCrud('DELETE')">
+            Delete Order
+        </button>
+</div>
+<pre id="crud-result" style="background:#020617; padding:20px;
+                border-radius:10px; margin-top:20px;
+                white-space:pre-wrap;">Waiting for action...</pre>
+<h3>Current SQLite record</h3>
+<pre id="crud-status" style="background:#020617; padding:20px;
+                border-radius:10px;
+                white-space:pre-wrap;">Loading...</pre>
+</section></div><div class="fdm-view " data-fdm-view="topics"><section class="card" style="margin-top:25px;">
+<h2 style="font-size:22px;">Kafka Topic Explorer</h2>
+<p>Live partition leaders, replicas, and ISR</p>
+<select id="topic-select" onchange="renderTopic()"></select>
+<div id="topic-summary" style="margin-top:20px;"></div>
+<div style="overflow-x:auto; margin-top:20px;">
+<table style="width:100%; border-collapse:collapse;">
+<thead>
+<tr>
+<th>Partition</th>
+<th>Leader</th>
+<th>Replicas</th>
+<th>In-Sync Replicas</th>
+<th>Replication Status</th>
+</tr>
+</thead>
+<tbody id="topic-partitions"></tbody>
+</table>
+</div>
+</section></div><div class="fdm-view " data-fdm-view="failover"><section class="card" style="margin-top:25px;">
+<h2 style="font-size:22px;">Kafka Fault Tolerance Lab</h2>
+<p>
+        Simulate broker failure and observe leader election
+        and replication recovery.
+    </p>
+<p>
+        Broker 2:
+        <strong id="broker2-status">Checking...</strong>
+</p>
+<div style="display:flex; gap:12px; flex-wrap:wrap;">
+<button onclick="controlBroker('stop')">
+            Stop Broker 2
+        </button>
+<button onclick="controlBroker('start')">
+            Restart Broker 2
+        </button>
+<button onclick="testFailoverProducer()">
+            Publish 30 Test Messages
+        </button>
+</div>
+<pre id="fault-output" style="background:#020617; padding:20px;
+                border-radius:10px; margin-top:20px;
+                white-space:pre-wrap;">Ready for fault tolerance test...</pre>
+</section></div><div class="fdm-view " data-fdm-view="events"><section class="card" style="margin-top:25px;">
+<h2 style="font-size:22px;">Live Kafka Event Monitor</h2>
+<p>Inspect recent messages across Kafka partitions</p>
+<div style="display:flex; gap:12px; flex-wrap:wrap;">
+<select id="event-topic">
+<option value="olist.raw.orders">Raw Orders</option>
+<option value="olist.orders">Transformed Orders</option>
+<option value="olist.customers">Customers</option>
+<option value="olist.payments">Payments</option>
+</select>
+<button onclick="refreshEvents()">
+            Refresh Events
+        </button>
+<span id="event-status" style="color:#64748b;">
+            Waiting...
+        </span>
+</div>
+<div style="overflow-x:auto; margin-top:20px;">
+<table style="width:100%; border-collapse:collapse;">
+<thead>
+<tr>
+<th>Timestamp</th>
+<th>Topic</th>
+<th>Partition</th>
+<th>Offset</th>
+<th>Operation</th>
+<th>Source</th>
+<th>Message Key</th>
+</tr>
+</thead>
+<tbody id="event-rows"></tbody>
+</table>
+</div>
+</section></div><div class="fdm-view " data-fdm-view="retries"><section class="card" style="margin-top:25px;">
+<h2 style="font-size:22px;">Kafka Retransmission Lab</h2>
+<p>
+        Send the same logical event multiple times and
+        verify duplicate-safe SQLite processing.
+    </p>
+<div style="display:flex; gap:12px; align-items:center;">
+<label for="retry-attempts">Transmissions:</label>
+<input id="retry-attempts" max="10" min="2" style="width:70px;" type="number" value="3"/>
+<button id="retry-button" onclick="runRetryDemo()">
+            Run Retransmission Test
+        </button>
+</div>
+<div class="cards">
+<div class="card">
+<div class="label">Kafka Delivered</div>
+<h2 id="retry-delivered">--</h2>
+</div>
+<div class="card">
+<div class="label">Kafka Partition</div>
+<h2 id="retry-partition">--</h2>
+</div>
+<div class="card">
+<div class="label">Unique SQLite Records</div>
+<h2 id="retry-sqlite">--</h2>
+</div>
+</div>
+<p id="retry-order-id"></p>
+<p id="retry-status">Ready for test.</p>
+<div style="overflow-x:auto; margin-top:20px;">
+<table style="width:100%; border-collapse:collapse;">
+<thead>
+<tr>
+<th>Transmission</th>
+<th>Partition</th>
+<th>Offset</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody id="retry-rows"></tbody>
+</table>
+</div>
+</section></div><footer style="font-size:11px;color:#73848e;padding:24px 0;border-top:1px solid var(--fdm-line);margin-top:35px">FDM Group-branded training demonstration · Apache Kafka / Flask / SQLite · Not an official FDM product</footer></main></div><script>
+async function refreshConsumers() {
+    const container = document.getElementById(
+        "consumer-groups"
+    );
+
+    try {
+        const response = await fetch("/api/consumers");
+
+        if (!response.ok) {
+            throw new Error("Consumer API failed");
+        }
+
+        const groups = await response.json();
+        container.replaceChildren();
+
+        for (const group of groups) {
+            const card = document.createElement("div");
+            card.className = "card";
+
+            const title = document.createElement("h3");
+            title.textContent = group.group;
+            card.appendChild(title);
+
+            const details = document.createElement("p");
+
+            if (group.error) {
+                details.textContent = `Error: ${group.error}`;
+            } else {
+                details.textContent =
+                    `Partitions: ${group.partitions} | ` +
+                    `Total lag: ${group.total_lag}`;
+            }
+
+            card.appendChild(details);
+            container.appendChild(card);
+        }
+
+    } catch (error) {
+        container.textContent = error.message;
+    }
+}
+
+refreshConsumers();
+setInterval(refreshConsumers, 10000);
+</script><script>
+async function refreshAssignments() {
+    const group = document.getElementById(
+        "assignment-group"
+    ).value;
+
+    const body = document.getElementById(
+        "assignment-rows"
+    );
+
+    try {
+        const response = await fetch(
+            "/api/consumer-assignments?group=" +
+            encodeURIComponent(group)
+        );
+
+        if (!response.ok) {
+            throw new Error("Unable to load assignments");
+        }
+
+        const data = await response.json();
+
+        body.replaceChildren();
+
+        for (const member of data.members) {
+            const row = document.createElement("tr");
+
+            for (const value of [
+                member.consumer_id,
+                member.host,
+                member.client_id,
+                member.partitions,
+                member.assignments
+            ]) {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                cell.style.padding = "12px";
+                cell.style.borderBottom = "1px solid #E2E8F0";
+                row.appendChild(cell);
+            }
+
+            body.appendChild(row);
+        }
+
+    } catch (error) {
+        body.replaceChildren();
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 5;
+        cell.textContent = error.message;
+        row.appendChild(cell);
+        body.appendChild(row);
+    }
+}
+
+refreshAssignments();
+setInterval(refreshAssignments, 10000);
+</script><script>
+async function runCrud(action) {
+    const output = document.getElementById("crud-result");
+
+    output.textContent = `Publishing ${action} event...`;
+
+    try {
+        const response = await fetch("/api/crud", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({action})
+        });
+
+        const result = await response.json();
+
+        output.textContent = JSON.stringify(result, null, 2);
+        await refreshCrudStatus();
+
+    } catch (error) {
+        output.textContent = error.message;
+    }
+}
+
+async function refreshCrudStatus() {
+    try {
+        const response = await fetch("/api/crud/status");
+        const result = await response.json();
+
+        document.getElementById("crud-status").textContent =
+            result.exists
+                ? JSON.stringify(result.record, null, 2)
+                : "Order does not exist in SQLite";
+    } catch (error) {
+        document.getElementById("crud-status").textContent =
+            error.message;
+    }
+}
+
+refreshCrudStatus();
+setInterval(refreshCrudStatus, 3000);
+</script><script>
+let topicData = [];
+
+async function refreshTopics() {
+    try {
+        const response = await fetch("/api/topics");
+
+        if (!response.ok) {
+            throw new Error("Unable to fetch topics");
+        }
+
+        const result = await response.json();
+        topicData = result.topics;
+
+        const select = document.getElementById("topic-select");
+        const selected = select.value;
+
+        select.replaceChildren();
+
+        for (const topic of topicData) {
+            const option = document.createElement("option");
+            option.value = topic.name;
+            option.textContent = topic.name;
+            select.appendChild(option);
+        }
+
+        if (topicData.some(t => t.name === selected)) {
+            select.value = selected;
+        } else if (
+            topicData.some(t => t.name === "olist.raw.orders")
+        ) {
+            select.value = "olist.raw.orders";
+        }
+
+        renderTopic();
+
+    } catch (error) {
+        document.getElementById("topic-summary").textContent =
+            error.message;
+    }
+}
+
+function renderTopic() {
+    const selected = document.getElementById(
+        "topic-select"
+    ).value;
+
+    const topic = topicData.find(t => t.name === selected);
+    if (!topic) return;
+
+    document.getElementById("topic-summary").textContent =
+        `Partitions: ${topic.partition_count} | ` +
+        `Replication factor: ${topic.replication_factor}`;
+
+    const body = document.getElementById("topic-partitions");
+    body.replaceChildren();
+
+    for (const partition of topic.partitions) {
+        const row = document.createElement("tr");
+
+        const values = [
+            partition.id,
+            `Broker ${partition.leader}`,
+            partition.replicas.join(", "),
+            partition.isr.join(", "),
+            partition.healthy ? "Fully replicated" : "Under-replicated"
+        ];
+
+        for (const value of values) {
+            const cell = document.createElement("td");
+            cell.textContent = value;
+            cell.style.padding = "12px";
+            cell.style.borderBottom = "1px solid #E2E8F0";
+            row.appendChild(cell);
+        }
+
+        body.appendChild(row);
+    }
+}
+
+refreshTopics();
+setInterval(refreshTopics, 5000);
+</script><script>
+async function refreshBrokerStatus() {
+    try {
+        const response = await fetch("/api/broker/status");
+        const data = await response.json();
+
+        const label = document.getElementById(
+            "broker2-status"
+        );
+
+        label.textContent = !response.ok
+            ? "Unknown"
+            : data.running ? "Running" : "Stopped";
+
+        label.style.color = !response.ok
+            ? "#A16207"
+            : data.running ? "#15803D" : "#DC2626";
+
+    } catch (error) {
+        document.getElementById(
+            "broker2-status"
+        ).textContent = "Unavailable";
+    }
+}
+
+async function controlBroker(action) {
+    if (action === "stop") {
+        const confirmed = confirm(
+            "Stop Kafka broker 2? " +
+            "Only proceed in your local test cluster."
+        );
+        if (!confirmed) return;
+    }
+
+    const output = document.getElementById("fault-output");
+    output.textContent = `Running ${action}...`;
+
+    try {
+        const response = await fetch("/api/broker/control", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({action})
+        });
+
+        const result = await response.json();
+        output.textContent = JSON.stringify(result, null, 2);
+
+        await refreshBrokerStatus();
+        await refreshTopics();
+
+    } catch (error) {
+        output.textContent = error.message;
+    }
+}
+
+async function testFailoverProducer() {
+    const output = document.getElementById("fault-output");
+    output.textContent = "Publishing 30 test messages...";
+
+    try {
+        const response = await fetch("/api/produce", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                source: "parquet",
+                limit: 30
+            })
+        });
+
+        const result = await response.json();
+
+        output.textContent = result.success
+            ? result.output
+            : JSON.stringify(result, null, 2);
+
+    } catch (error) {
+        output.textContent = error.message;
+    }
+}
+
+refreshBrokerStatus();
+setInterval(refreshBrokerStatus, 5000);
+</script><script>
+async function refreshEvents() {
+    const topic = document.getElementById(
+        "event-topic"
+    ).value;
+
+    const status = document.getElementById(
+        "event-status"
+    );
+
+    const body = document.getElementById(
+        "event-rows"
+    );
+
+    try {
+        const response = await fetch(
+            "/api/events?topic=" +
+            encodeURIComponent(topic) +
+            "&limit=25"
+        );
+
+        if (!response.ok) {
+            throw new Error("Unable to fetch Kafka events");
+        }
+
+        const result = await response.json();
+
+        body.replaceChildren();
+
+        for (const event of result.events) {
+            const row = document.createElement("tr");
+
+            const values = [
+                event.timestamp || "-",
+                event.topic,
+                event.partition,
+                event.offset,
+                event.operation,
+                event.source,
+                event.key || "-"
+            ];
+
+            for (const value of values) {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                cell.style.padding = "10px";
+                cell.style.borderBottom = "1px solid #E2E8F0";
+                row.appendChild(cell);
+            }
+
+            body.appendChild(row);
+        }
+
+        status.textContent =
+            `${result.count} recent events displayed`;
+
+    } catch (error) {
+        status.textContent = error.message;
+    }
+}
+
+refreshEvents();
+setInterval(refreshEvents, 3000);
+</script><script>
+async function runRetryDemo() {
+    const button = document.getElementById("retry-button");
+    const status = document.getElementById("retry-status");
+
+    button.disabled = true;
+    status.textContent = "Publishing retransmissions...";
+
+    try {
+        const attempts = Number(
+            document.getElementById("retry-attempts").value
+        );
+
+        const response = await fetch("/api/retransmission", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({attempts})
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(
+                result.error || "Retransmission test failed"
+            );
+        }
+
+        document.getElementById("retry-delivered")
+            .textContent = `${result.delivered}/${result.attempts}`;
+
+        document.getElementById("retry-partition")
+            .textContent = result.deliveries[0]?.partition ?? "--";
+
+        document.getElementById("retry-order-id")
+            .textContent = `Order ID: ${result.order_id}`;
+
+        const body = document.getElementById("retry-rows");
+        body.replaceChildren();
+
+        result.deliveries.forEach((delivery, index) => {
+            const row = document.createElement("tr");
+
+            const values = [
+                index + 1,
+                delivery.partition ?? "-",
+                delivery.offset ?? "-",
+                delivery.success ? "Delivered" : "Failed"
+            ];
+
+            values.forEach(value => {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                cell.style.padding = "12px";
+                cell.style.borderBottom = "1px solid #E2E8F0";
+                row.appendChild(cell);
+            });
+
+            body.appendChild(row);
+        });
+
+        status.textContent =
+            "Kafka delivery complete. Waiting for SQLite...";
+
+        // Kafka consumers process asynchronously.
+        let verified = false;
+
+        for (let attempt = 0; attempt < 15; attempt++) {
+            const check = await fetch(
+                "/api/retransmission/status?order_id=" +
+                encodeURIComponent(result.order_id)
+            );
+
+            if (!check.ok) {
+                throw new Error("SQLite verification failed");
+            }
+
+            const data = await check.json();
+
+            document.getElementById("retry-sqlite")
+                .textContent = data.unique_records;
+
+            if (data.unique_records === 1) {
+                verified = true;
+                break;
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        status.textContent = verified
+            ? "SUCCESS: Multiple Kafka events, one SQLite record."
+            : "Kafka delivered; SQLite verification still pending.";
+
+        await refreshEvents();
+
+    } catch (error) {
+        status.textContent = error.message;
+
+    } finally {
+        button.disabled = false;
+    }
+}
+</script><script>
+async function publishRecords() {
+    const button = document.getElementById("publish-btn");
+    const output = document.getElementById("producer-output");
+
+    button.disabled = true;
+    output.textContent = "Publishing messages...";
+
+    try {
+        const response = await fetch("/api/produce", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                source: document.getElementById(
+                    "producer-source"
+                ).value,
+                limit: Number(document.getElementById(
+                    "producer-limit"
+                ).value)
+            })
+        });
+
+        const result = await response.json();
+
+        output.textContent = result.success
+            ? result.output
+            : (result.error || "Producer failed");
+
+        if (!response.ok) {
+            output.textContent += "\n" + (result.output || "");
+        }
+
+        if (response.ok) {
+            await refresh();
+        }
+
+    } catch (error) {
+        output.textContent = error.message;
+    } finally {
+        button.disabled = false;
+    }
+}
+</script><script>
+        async function refresh() {
+            try {
+                const [clusterResponse, dbResponse] =
+                    await Promise.all([
+                        fetch("/api/cluster"),
+                        fetch("/api/database")
+                    ]);
+
+                if (!clusterResponse.ok || !dbResponse.ok) {
+                    throw new Error("API request failed");
+                }
+
+                const cluster = await clusterResponse.json();
+                const db = await dbResponse.json();
+
+                document.getElementById("brokers")
+                    .textContent = cluster.brokers;
+                document.getElementById("topics")
+                    .textContent = cluster.topics;
+                document.getElementById("partitions")
+                    .textContent = cluster.partitions;
+                document.getElementById("raw-orders")
+                    .textContent = db.raw_orders ?? 0;
+
+            } catch (error) {
+                console.error("Dashboard refresh failed:", error);
+            }
+        }
+
+        refresh();
+        setInterval(refresh, 5000);
+    </script><script src="{{ url_for('static', filename='js/fdm.js') }}"></script><script>document.querySelectorAll('[data-fdm-jump]').forEach(b=>b.addEventListener('click',()=>{location.hash=b.dataset.fdmJump;}));</script><script src="{{ url_for('static', filename='js/broker-health.js') }}"></script><script src="{{ url_for('static', filename='js/fdm-charts.js', v='1') }}"></script>
+    <script src="{{ url_for('static', filename='js/snowflake.js', v='3') }}"></script>
+</body></html>
