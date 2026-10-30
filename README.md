@@ -1,86 +1,106 @@
 # Olist Kafka Operations Center
 
-**An event-driven data engineering and Kafka observability demonstration using Snowflake, Apache Kafka, Python, SQLite, Docker, and Flask.**
+**Multi-source, event-driven data ingestion and Kafka operations demonstration using Apache Kafka, Python, Snowflake, CSV, Parquet, TAR archives, SQLite, Docker, and Flask.**
 
-## Project overview
+## Overview
 
-This project demonstrates how a distributed event-streaming platform can move transformed e-commerce data from Snowflake to downstream storage while exposing operational behavior through a web dashboard.
+This project explores how different data sources can publish events into a shared distributed streaming platform. Python producers ingest Olist e-commerce records from **Snowflake ETL tables, CSV files, Parquet files, and TAR archives**. Apache Kafka retains and distributes events through partitioned topics; Python consumers persist records into SQLite. A Flask-based Operations Center provides visibility into cluster health, topics, consumer lag, throughput, and publishing activity.
 
-A Python producer extracts records from the `OLIST_ECOMMERCE.ETL` schema in Snowflake and publishes JSON events to Apache Kafka. Three Kafka brokers provide replicated partition storage. Three Python consumers in one consumer group process the transformed-table topics and persist record state in SQLite. A Flask Operations Center provides visibility into Kafka health and activity.
+The project also includes producers for **CRUD operations** and **retransmission/duplicate-handling demonstrations**. These are testing paths, not additional external data sources.
 
-The project is designed as a hands-on demonstration of **topics, partitions, replication, consumer groups, offsets, lag, idempotent writes, and producer–consumer decoupling**.
+> **Verification scope:** The full Snowflake `ORDERS` ingestion has been verified end to end at the unique-record-count level (99,443 records; zero final consumer lag). Other ingestion formats are implemented in the repository, but equivalent full-load verification is not claimed here.
 
 ## Architecture
 
 ```text
-                  Snowflake
-           OLIST_ECOMMERCE.ETL
-                    |
-                    | SQL extraction
-                    v
-           Python Snowflake Producer
-           - JSON event serialization
-           - record-based message keys
-           - idempotent Kafka producer
-                    |
-                    v
-        Apache Kafka (KRaft, Docker)
-        +---------+---------+---------+
-        | kafka1  | kafka2  | kafka3  |
-        +---------+---------+---------+
-        | Topics / partitions / replicas |
-        +-------------------------------+
-                    |
-          Consumer group (3 members)
-          /         |          \
-     Consumer 1  Consumer 2  Consumer 3
-          \         |          /
-                    v
-             SQLite database
-             data/olist_kafka.db
+   +--------------------+  +------------------+
+   | Snowflake ETL      |  | CSV datasets     |
+   +--------------------+  +------------------+
+   +--------------------+  +------------------+
+   | Parquet files      |  | TAR archives     |
+   +--------------------+  +------------------+
+                \             /
+                 \           /
+             Source-specific Python producers
+           (Snowflake / CSV / Parquet / TAR)
+                           |
+                           v
+                Apache Kafka (KRaft)
+           +-----------+-----------+-----------+
+           |  kafka1   |  kafka2   |  kafka3   |
+           +-----------+-----------+-----------+
+              Topics / partitions / replicas
+                           |
+                           v
+                  Python consumers
+             (transformed / raw streams)
+                           |
+                           v
+                     SQLite DB
+                 data/olist_kafka.db
 
-       Flask Kafka Operations Center
-       - broker / topic visibility
-       - partition leadership and replication
-       - consumer groups and lag
-       - throughput and operational views
-       - Snowflake publishing controls
+      Flask Operations Center (monitoring and controls)
+         brokers | topics | partitions | consumer lag
+          throughput | events | Snowflake publishing
 ```
 
-A separate raw-orders consumer and topic are also part of the platform.
+Different producers may publish to different topics and use different message structures; the diagram represents the overall platform, **not a claim that every producer follows the exact same downstream path**.
 
 ## Technology stack
 
-| Component | Technology | Responsibility |
+| Layer | Technology | Purpose |
 |---|---|---|
-| Source data | Snowflake | Transformed Olist e-commerce tables |
-| Event streaming | Apache Kafka 3.9.1 | Durable, partitioned event log |
-| Cluster orchestration | Docker | Runs the Kafka brokers locally |
-| Metadata management | Kafka KRaft | Kafka metadata without ZooKeeper |
-| Producer | Python, `confluent-kafka`, Snowflake Connector | Extracts and publishes JSON events |
-| Consumers | Python, `confluent-kafka` | Reads events and updates SQLite |
-| Downstream database | SQLite | Local materialized record state |
-| Monitoring interface | Flask | Kafka Operations Center dashboard |
+| Structured warehouse source | Snowflake | Reads transformed Olist data from `OLIST_ECOMMERCE.ETL` |
+| File sources | CSV, Apache Parquet, TAR | Demonstrates ingestion of flat files, columnar files, and archived datasets |
+| Producer applications | Python | Source-specific extraction, event creation, and publishing |
+| Streaming infrastructure | Apache Kafka 3.9.1 | Partitioned event storage, replication, consumer groups |
+| Cluster runtime | Docker, Kafka KRaft | Runs three local brokers without ZooKeeper |
+| Consumers | Python, `confluent-kafka` | Processes events and persists state |
+| Local sink | SQLite | Stores consumed records for verification and demonstration |
+| Operations UI | Flask, HTML, CSS, JavaScript | Cluster and pipeline observability |
 
-## Kafka cluster configuration
+## Source-specific producers
+
+| File | Input | Role |
+|---|---|---|
+| `producers/snowflake_producer.py` | Snowflake ETL tables | Queries transformed tables and publishes keyed JSON events |
+| `producers/file_producer.py` | CSV | Publishes records from local CSV files |
+| `producers/parquet_producer.py` | Parquet | Publishes records read from a columnar file |
+| `producers/tar_producer.py` | TAR archive | Publishes records read from archived input |
+| `producers/crud_producer.py` | Generated CRUD events | Demonstrates create, update, and delete behavior |
+| `producers/retransmission_demo.py` | Test events | Exercises replay/retransmission scenarios |
+| `producers/convert_to_parquet.py` | File conversion | Prepares Parquet input; it is not itself a Kafka producer |
+
+Sample input assets are located under `raw/`, `data/parquet/`, and `data/archives/`. Source-specific command-line arguments, event shapes, and topic destinations should be checked in each script before running; they are not assumed to be identical.
+
+### Why multiple source formats?
+
+- **CSV:** Common exports from legacy systems, business partners, and operational tools.
+- **Parquet:** Columnar format often used in analytical data lakes and batch pipelines.
+- **TAR:** Packaged historical datasets or file-delivery bundles.
+- **Snowflake:** Transformed warehouse data used as an upstream source for downstream event consumers.
+
+Kafka receives serialized events from the producers regardless of the original storage format. **This is a batch/source-file publishing demonstration with continuously polling consumers, not automatic Snowflake CDC.**
+
+## Kafka cluster
 
 - **Brokers:** `kafka1`, `kafka2`, `kafka3`
 - **Host bootstrap addresses:** `localhost:19092`, `localhost:29092`, `localhost:39092`
-- **Container bootstrap address:** `kafka1:9092`
-- **Kafka mode:** KRaft
-- **Transformed-data topics:** 9, each with 3 partitions and replication factor 3
-- **Raw orders topic:** 1, with 6 partitions
-- **Total topics / partitions:** 10 topics / 33 partitions
+- **Docker-network bootstrap address:** `kafka1:9092`
+- **Metadata mode:** KRaft
+- **Transformed-table topics:** 9 topics, each with 3 partitions and replication factor 3
+- **Raw Orders topic:** `olist.raw_orders`, 6 partitions
+- **Total observed topology:** 10 topics / 33 partitions
 - **Transformed-data consumer group:** `olist-sqlite-consumer-group`
-- **Active transformed-data consumers in the verified test:** 3
+- **Consumers in the verified Orders test:** 3
 
-With three consumers and three partitions per transformed topic, each consumer can own one partition from each topic, distributing processing across the group.
+Partitioning enables parallel processing. Replication distributes partition copies among brokers for fault tolerance; it does **not** mean that three consumers each process every event.
 
-## Data sources and topics
+## Snowflake transformed tables
 
-The producer reads from the Snowflake `OLIST_ECOMMERCE.ETL` schema.
+The Snowflake producer reads from `OLIST_ECOMMERCE.ETL`.
 
-| Snowflake table | Kafka topic | Source row count at verification |
+| Snowflake table | Kafka topic | Source rows at verification |
 |---|---|---:|
 | `ORDERS` | `olist.orders` | 99,443 |
 | `ORDER_ITEMS` | `olist.order_items` | 112,651 |
@@ -92,13 +112,20 @@ The producer reads from the Snowflake `OLIST_ECOMMERCE.ETL` schema.
 | `GEOLOCATION` | `olist.geolocation` | 738,328 |
 | `CATEGORY_TRANSLATION` | `olist.category_translation` | 72 |
 
-**Note:** Source row counts are a snapshot. They are not necessarily equal to distinct record-key counts, especially for tables with composite keys. Full-load verification is complete for **Orders only**.
+Counts are a snapshot of source rows. For composite-key tables, the number of unique keys can differ from the number of source rows. **Only Orders has completed full-load reconciliation.**
 
-## Event format
+## Snowflake producer behavior
 
-Each transformed record is published as a JSON event with a stable Kafka key derived from the table's identifying column(s).
+File: `producers/snowflake_producer.py`
 
-Example (illustrative, shortened):
+1. Loads Kafka and Snowflake settings from `.env`.
+2. Connects to Snowflake and selects rows from the requested table.
+3. Converts timestamps, dates, and decimals into JSON-compatible values.
+4. Builds a Kafka key using table-specific business key columns.
+5. Publishes an event to `olist.<table_name>`.
+6. Processes delivery callbacks, handles producer queue backpressure, and flushes outstanding messages.
+
+Example **illustrative shortened** event:
 
 ```json
 {
@@ -112,23 +139,9 @@ Example (illustrative, shortened):
 }
 ```
 
-- The **topic** identifies the dataset.
-- The **key** determines partition assignment and supports consistent record identity.
-- The **value** contains the operation, source, table, and record data.
-- Events with the same key are routed to the same partition under a stable partitioning configuration.
+The Kafka key is separate from the JSON value. Keyed events generally retain ordering relative to other events with the same key within a partition, assuming stable partitioning.
 
-## Producer design
-
-File: `producers/snowflake_producer.py`
-
-1. Loads credentials and Kafka settings from environment variables.
-2. Connects to Snowflake and selects the requested ETL table.
-3. Serializes Snowflake values (including dates, timestamps, and decimals) into JSON-compatible values.
-4. Builds a key from the table-specific key columns.
-5. Publishes each event to the matching Kafka topic.
-6. Processes delivery callbacks and flushes pending messages before reporting results.
-
-Producer configuration includes:
+Relevant producer settings:
 
 ```python
 {
@@ -138,99 +151,86 @@ Producer configuration includes:
 }
 ```
 
-Producer idempotence protects against certain retry-related duplicates **within producer sessions**; it does not make the entire Snowflake-to-SQLite workflow exactly-once.
+Producer idempotence protects against certain retry-induced duplicates; it does **not** provide end-to-end exactly-once processing or prevent duplicates when a complete source table is deliberately republished.
 
-### Publish records
-
-Activate the project's Python virtual environment, ensure Kafka is running, and use:
+### Publish Snowflake data
 
 ```powershell
-# Publish up to 10 Orders records
+# Small demonstration batch
 python producers/snowflake_producer.py orders 10
 
-# Publish the complete Sellers table
+# Entire Orders table (already completed and verified)
+python producers/snowflake_producer.py orders 0
+
+# Example full Sellers table (run only when ready)
 python producers/snowflake_producer.py sellers 0
 ```
 
-In the current producer implementation, **`0` means no SQL LIMIT (full table)**. Avoid repeating full-table publishes unintentionally.
+In this script, `0` means **no SQL LIMIT**. Repeating a full load republishes the rows.
 
-## Consumer design
+## Consumer design and delivery semantics
 
-File: `consumers/sqlite_consumer.py`
+Main transformed-table consumer: `consumers/sqlite_consumer.py`.
 
-The transformed-data consumers:
+For each Kafka message, it:
 
-1. Poll Kafka for a message.
-2. Decode its key and JSON event.
-3. Apply an insert/update (UPSERT) or delete in the corresponding SQLite table.
-4. Commit the SQLite transaction.
-5. Synchronously commit the processed Kafka offset.
+1. Polls its assigned Kafka partitions.
+2. Decodes the event and its key.
+3. Applies `INSERT`/`UPDATE`/`UPSERT` as a SQLite upsert, or `DELETE` as a delete.
+4. Commits the SQLite transaction.
+5. Synchronously commits the Kafka offset **after** the database write succeeds.
 
-The consumer uses **manual offset commits** (`enable.auto.commit=False`). Database commits happen before Kafka offset commits.
+The consumer uses `enable.auto.commit=False`. This supports **at-least-once processing**: if the process crashes after SQLite commits but before the Kafka offset commits, the message can be replayed. Primary-key UPSERTs make repeated writes safe for the current-state representation.
 
-### Delivery semantics
-
-The pipeline provides **at-least-once processing** rather than end-to-end exactly-once delivery. If a consumer crashes after the SQLite commit but before its Kafka offset commit, Kafka can replay the message. A primary-key-based SQLite UPSERT makes replay safe for the stored current-record state.
-
-The current implementation commits SQLite and Kafka offsets **per message**. This is simple to reason about and verify, but it can limit throughput under larger workloads.
+The consumer currently commits **each message individually** in both SQLite and Kafka. This is easy to demonstrate but limits high-volume throughput. A separate `consumers/raw_sqlite_consumer.py` supports the raw-orders path.
 
 ## Flask Operations Center
 
-Local dashboard: **http://127.0.0.1:5001**
+Local URL: **http://127.0.0.1:5001**
 
-The dashboard is intended to demonstrate and inspect:
+The dashboard includes views or controls for:
 
-- Kafka broker and cluster health
-- Topic and partition information
-- Partition leaders and replica health
-- Consumer groups, committed offsets, and lag
+- Broker and cluster health
+- Topics, partitions, leaders, and replica health
+- Consumer groups, offsets, and lag
 - Message throughput and operational activity
-- Snowflake source integration and small-batch publishing
-- Fault-tolerance concepts and operational testing
+- Event exploration and publishing
+- Snowflake connection and small-batch publishing
+- Fault-tolerance and CRUD/retransmission demonstrations
 
-**Important:** The dashboard's Snowflake publishing workflow is limited to small demo batches (1–1,000 records). Full-table loads are executed through the Python CLI. CLI publishing may not appear in the dashboard's dashboard-triggered run history.
+The dashboard's Snowflake publish workflow is designed for **1–1,000 records** per request. Full-table loads use the Python CLI. CLI runs may **not** appear in the dashboard's dashboard-triggered publishing history.
 
-## Verified end-to-end test: Orders
+## Verified end-to-end result: Snowflake Orders
 
-The complete `ORDERS` table was published from Snowflake and consumed into SQLite.
+The Orders table was fully published from Snowflake and consumed into SQLite.
 
-| Verification | Result |
+| Check | Observed result |
 |---|---:|
 | Snowflake `COUNT(DISTINCT ORDER_ID)` | **99,443** |
-| Kafka messages submitted | **99,443** |
-| Kafka messages delivered | **99,443** |
-| Kafka delivery failures | **0** |
-| Messages remaining in producer queue | **0** |
-| SQLite `orders` row count | **99,443** |
-| Final consumer lag across Orders partitions | **0** |
+| Producer submitted | **99,443** |
+| Producer delivered | **99,443** |
+| Producer delivery failures | **0** |
+| Messages left queued after flush | **0** |
+| SQLite `orders` rows | **99,443** |
+| Final Kafka consumer lag for `olist.orders` | **0** |
 
-### Observed lag recovery
+During the load, observed lag fell from **67,238 → 31,411 → 0**. This illustrates **producer–consumer decoupling**: the producer completed its publishing work while Kafka retained a backlog that consumers processed later.
 
-During the full load, the producer published faster than the consumers could persist events. The measured Orders consumer lag fell from **67,238** to **31,411**, and ultimately to **0**.
+Snowflake and SQLite matched at the **distinct-key count** level. A field-by-field source-to-sink reconciliation has **not** been performed. Full-table validation for the other eight Snowflake tables, and equivalent full-load validation for each file-format ingestion path, remain future work.
 
-This demonstrates **asynchronous decoupling**: the producer can finish publishing while Kafka retains messages for downstream consumers to process at their own pace.
-
-The Snowflake and SQLite **distinct-key counts matched**. A complete field-by-field reconciliation has not yet been performed.
-
-## Operational verification commands
-
-### Inspect consumer lag
+## Useful PowerShell checks
 
 ```powershell
+# Running containers
+docker ps
+
+# Consumer group offsets and lag
 docker exec kafka1 /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka1:9092 --describe --group olist-sqlite-consumer-group
-```
 
-To focus on Orders:
-
-```powershell
+# Orders partitions only
 docker exec kafka1 /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server kafka1:9092 --describe --group olist-sqlite-consumer-group | Select-String "olist.orders"
-```
 
-**Lag** is the difference between the log-end offset and the consumer group's committed offset. Zero lag means the group's committed offsets have caught up with the topic's log ends at the time of inspection.
-
-### Check SQLite Orders count
-
-```powershell
+# SQLite Orders count
 @'
 import sqlite3
 conn = sqlite3.connect("data/olist_kafka.db")
@@ -239,54 +239,63 @@ conn.close()
 '@ | python
 ```
 
-### Check running Docker containers
+Consumer lag = **log-end offset − committed consumer offset** for a partition. A zero value means the consumer group was caught up at the time of measurement.
 
-```powershell
-docker ps
+## Repository layout
+
+```text
+olist-kafka-platform/
+├── README.md
+├── .gitignore
+├── docker-compose.yml
+├── config/
+│   └── test_snowflake.py
+├── producers/
+│   ├── snowflake_producer.py
+│   ├── file_producer.py
+│   ├── parquet_producer.py
+│   ├── tar_producer.py
+│   ├── convert_to_parquet.py
+│   ├── crud_producer.py
+│   └── retransmission_demo.py
+├── consumers/
+│   ├── sqlite_consumer.py
+│   └── raw_sqlite_consumer.py
+├── dashboard/
+│   ├── app.py
+│   ├── broker_health.py
+│   ├── event_service.py
+│   ├── templates/
+│   └── static/
+├── raw/                 # CSV inputs
+└── data/
+    ├── archives/        # TAR input
+    ├── parquet/         # Parquet input
+    └── olist_kafka.db    # Local database; gitignored
 ```
 
-## Fault tolerance and design choices
+Other local backup files may be present in the repository.
 
-**Why Kafka?** Kafka separates ingestion from downstream processing, retains events independently of consumer speed, and allows consumer groups to scale across partitions.
+## Presentation walkthrough (5 minutes)
 
-**Why three brokers?** Three brokers enable replication and allow the project to demonstrate partition leadership and broker-failure behavior. Successful failover depends on replica synchronization and cluster configuration.
+1. **Problem and architecture:** Explain why Kafka decouples producers from downstream consumers and how multiple formats enter the platform.
+2. **Sources:** Point out the separate CSV, Parquet, TAR, and Snowflake producer scripts.
+3. **Cluster:** Show three Kafka brokers, topics, partitions, leaders, and replicas.
+4. **Consumers and dashboard:** Show the three-member consumer group, operational telemetry, and consumer lag.
+5. **Evidence:** Show the completed **99,443-record Orders** verification and final **zero lag**.
 
-**Why three consumers?** Consumers in one group share assigned partitions. Three consumers can process the three partitions of `olist.orders` concurrently.
+## Limitations and future improvements
 
-**Why SQLite?** It provides a lightweight local destination for validating record persistence and demonstrating event processing without deploying another database service.
-
-**Why commit SQLite before Kafka offsets?** It avoids marking a message processed before its database write succeeds. Replayed messages can be handled by record-key UPSERTs.
-
-## Current scope and future improvements
-
-### Verified
-
-- Three-broker Kafka cluster and three active transformed-data consumers
-- Nine transformed-data topics with partitioned, replicated storage
-- Successful full-table producer run for Orders
-- Zero consumer lag after the Orders full load
-- Exact match between Snowflake and SQLite unique Orders counts
-- Successful small-table producer test for Category Translation
-
-### Still to validate or extend
-
-- Full-table ingestion and distinct-key reconciliation for the remaining eight ETL tables
-- Field-by-field reconciliation and data quality checks
-- Structured error handling and dead-letter topics
-- Throughput benchmarks and alert thresholds
-- Production-grade downstream database and transaction tuning
-- Repeatable automated integration and failover tests
-
-## Suggested five-minute demo
-
-1. **Architecture:** Explain Snowflake → producer → Kafka → consumer group → SQLite.
-2. **Kafka cluster:** Show three brokers, topic partitions, leaders, and replicas.
-3. **Consumers:** Show three group members and their partition assignments.
-4. **Live monitoring:** Show the dashboard's lag, throughput, and operational views.
-5. **Evidence:** Present the 99,443-record Orders reconciliation and zero final lag.
-
-> **Key takeaway:** The project demonstrates not just moving data, but observing how a distributed event pipeline behaves when producers and consumers operate at different speeds.
+- Complete full-load validation for remaining Snowflake tables and each file-format producer.
+- Compare source and destination **record values**, not only counts.
+- Add continuous change capture or incremental source synchronization rather than manual table snapshots.
+- Batch SQLite transactions and Kafka offset commits to improve throughput.
+- Add dead-letter topics, structured error logging, and alerting.
+- Add automated integration and broker failover tests.
+- Consider a production-oriented database and stronger deployment security.
 
 ## Configuration and security
 
-Credentials are loaded from environment variables (for example, Snowflake connection settings and `KAFKA_BOOTSTRAP_SERVERS`). Do **not** commit `.env` files, passwords, or other secrets to source control. This is a local demonstration architecture; production deployments require additional authentication, authorization, encryption, monitoring, and operational controls.
+Store credentials in environment variables or a local `.env` file. **Never commit `.env`, passwords, API keys, or other secrets.** A sanitized `.env.example` may document required variable names. SQLite runtime files and virtual environments should remain outside version control.
+
+This is a local learning and demonstration environment, not a production-hardened deployment.
